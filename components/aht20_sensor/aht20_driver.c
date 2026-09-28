@@ -8,6 +8,20 @@ static const char *TAG = "AHT20_DRIVER";
 
 #define I2C_TIMEOUT_MS 1000
 
+#define AHT20_SENSOR_ADDR 0x38
+#define AHT20_CMD_GET_STATUS 0x71
+
+#define AHT20_CMD_INITIALIZE 0xBE
+#define AHT20_INIT_PARAM_0 0x08
+#define AHT20_INIT_PARAM_1 0x00
+
+#define AHT20_CMD_TRIGGER_MEASUREMENT 0xAC
+#define AHT20_TRIGGER_PARAM_0 0x33
+#define AHT20_TRIGGER_PARAM_1 0x00
+
+#define AHT20_STATUS_CALIBRATED_BIT_MASK 0x08
+#define AHT20_STATUS_BUSY_BIT_MASK 0x80
+
 esp_err_t aht20_init(i2c_master_bus_handle_t bus_handle, aht20_dev_handle_t *aht20_ret_handle) {
 
     ESP_RETURN_ON_FALSE(bus_handle != NULL && aht20_ret_handle != NULL, ESP_ERR_INVALID_ARG, 

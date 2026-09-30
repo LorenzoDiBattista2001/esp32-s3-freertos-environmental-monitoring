@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "driver/i2c_master.h"
 #include "aht20_driver.h"
+#include "ssd1306_driver.h"
 
 static const char *TAG = "Temperature_Monitoring";
 

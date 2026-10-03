@@ -41,5 +41,13 @@ void app_main(void)
         return;
     }
 
+    ssd1306_dev_handle_t ssd1306_handle;
+    ret = ssd1306_init(bus_handle, &ssd1306_handle);
+
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "SSD1306 Display initialization failed");
+        return;
+    }
+
     // Tasks Creation
 }

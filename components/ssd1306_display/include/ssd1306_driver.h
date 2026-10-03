@@ -22,8 +22,8 @@ esp_err_t ssd1306_draw_character(uint8_t x_start, uint8_t y_start, char characte
 
 esp_err_t ssd1306_draw_string(const char *text);
 
-esp_err_t ssd1306_update();
+esp_err_t ssd1306_update(ssd1306_dev_handle_t ssd1306_handle);
 
-esp_err_t ssd1306_clear();
+esp_err_t ssd1306_clear(void);
 
 #endif

@@ -4,9 +4,11 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_log.h"
+#include "nvs_flash.h"
 #include "driver/i2c_master.h"
 #include "aht20_driver.h"
 #include "ssd1306_driver.h"
+#include "wifi_controller.h"
 
 static const char *TAG = "MAIN_APP";
 
@@ -20,6 +22,8 @@ static const char *TAG = "MAIN_APP";
 
 #define SENSOR_TASK_PRIORITY 5
 #define DISPLAY_TASK_PRIORITY 2
+
+EventGroupHandle_t s_network_event_group = NULL;
 
 static QueueHandle_t s_display_queue = NULL;
 
@@ -55,7 +59,6 @@ void display_task(void *pvParameters) {
     char buffer[100];
 
     while (1) {
-
         if(xQueueReceive(s_display_queue, &data, portMAX_DELAY) == pdPASS) {
             snprintf(buffer, sizeof(buffer), "Temperature:\n%.2f C", data.temperature);
 
@@ -84,7 +87,18 @@ static esp_err_t i2c_master_init(i2c_master_bus_handle_t *bus_handle)
 
 void app_main(void)
 {
+
+    // Initialize NVS
+
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+      ESP_ERROR_CHECK(nvs_flash_erase());
+      ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
     // Single-item queue so as to overwrite past state
+
     s_display_queue = xQueueCreate(1, sizeof(aht20_sensor_data_t));
 
     if (s_display_queue == NULL) {
@@ -93,19 +107,27 @@ void app_main(void)
     }
 
     // I2C Master Bus Initialization
+
     i2c_master_bus_handle_t bus_handle;
     ESP_ERROR_CHECK(i2c_master_init(&bus_handle));
 
     // I2C Devices Initialization
+
     aht20_dev_handle_t aht20_handle;
     ESP_ERROR_CHECK(aht20_init(bus_handle, &aht20_handle));
 
     ssd1306_dev_handle_t ssd1306_handle;
     ESP_ERROR_CHECK(ssd1306_init(bus_handle, &ssd1306_handle));
 
+    // Wi-Fi and Network Interface Initialization
+
+    s_network_event_group = xEventGroupCreate();
+    ESP_ERROR_CHECK(wifi_controller_init(s_network_event_group));
+
     // Tasks Creation
+
     xTaskCreatePinnedToCore(sensor_task, "AHT20_Task", SENSOR_TASK_STACK_SIZE, 
-                            (void *)aht20_handle, SENSOR_TASK_PRIORITY, NULL, 0);
+                            (void *)aht20_handle, SENSOR_TASK_PRIORITY, NULL, 1);
     xTaskCreatePinnedToCore(display_task, "SSD1306_Task", DISPLAY_TASK_STACK_SIZE, 
-                            (void *) ssd1306_handle, DISPLAY_TASK_PRIORITY, NULL, 0);
+                            (void *) ssd1306_handle, DISPLAY_TASK_PRIORITY, NULL, 1);
 }

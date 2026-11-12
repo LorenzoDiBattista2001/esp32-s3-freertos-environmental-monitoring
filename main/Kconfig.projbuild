@@ -19,3 +19,30 @@ menu "Custom Wi-Fi Configuration"
             Maximum number of connection retries.
 
 endmenu
+
+menu "Custom MQTT Configuration"
+    
+    config BROKER_URL
+        string "MQTT Broker URI"
+        default "DEFAULT_BROKER_URI"
+        help
+            The complete URI of MQTT Broker
+
+    config CLIENT_USERNAME
+        string "MQTT Client username"
+        default "DEFAULT_USERNAME"
+        help
+            Username used for connecting to the broker
+
+    config CLIENT_PASSWORD
+        string "MQTT Client password"
+        default "DEFAULT_PASSWORD"
+        help
+            Password to authenticate client
+
+    config TOPIC_STRING
+        string "Topic String"
+        default "default/topic"
+        help
+            MQTT topic to subscribe or publish data to
+endmenu

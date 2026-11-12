@@ -9,6 +9,7 @@
 #include "aht20_driver.h"
 #include "ssd1306_driver.h"
 #include "wifi_controller.h"
+#include "mqtt_publisher.h"
 
 static const char *TAG = "MAIN_APP";
 
@@ -123,6 +124,7 @@ void app_main(void)
 
     s_network_event_group = xEventGroupCreate();
     ESP_ERROR_CHECK(wifi_controller_init(s_network_event_group));
+    ESP_ERROR_CHECK(mqtt_publisher_init(s_network_event_group));
 
     // Tasks Creation
 

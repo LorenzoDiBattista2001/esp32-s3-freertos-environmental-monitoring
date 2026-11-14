@@ -20,13 +20,16 @@ static const char *TAG = "MAIN_APP";
 
 #define SENSOR_TASK_STACK_SIZE 3072
 #define DISPLAY_TASK_STACK_SIZE 4096
+#define MQTT_TASK_STACK_SIZE 4096
 
 #define SENSOR_TASK_PRIORITY 5
 #define DISPLAY_TASK_PRIORITY 2
+#define MQTT_TASK_PRIORITY 2
 
 EventGroupHandle_t s_network_event_group = NULL;
 
 static QueueHandle_t s_display_queue = NULL;
+static QueueHandle_t s_mqtt_queue = NULL;
 
 void sensor_task(void *pvParameters) {
 
@@ -43,6 +46,7 @@ void sensor_task(void *pvParameters) {
 
         if (ret == ESP_OK) {
             xQueueOverwrite(s_display_queue, &data);
+            xQueueOverwrite(s_mqtt_queue, &data);
         } else {
             ESP_LOGW(TAG, "Failed to read data from AHT20 sensor: %s", esp_err_to_name(ret));
         }
@@ -60,12 +64,37 @@ void display_task(void *pvParameters) {
     char buffer[100];
 
     while (1) {
-        if(xQueueReceive(s_display_queue, &data, portMAX_DELAY) == pdPASS) {
+        if (xQueueReceive(s_display_queue, &data, portMAX_DELAY) == pdPASS) {
             snprintf(buffer, sizeof(buffer), "Temperature:\n%.2f C", data.temperature);
 
-            ssd1306_clear();
-            ssd1306_draw_string(buffer);
-            ssd1306_update(ssd1306_handle);
+            ESP_ERROR_CHECK(ssd1306_clear());
+            ESP_ERROR_CHECK(ssd1306_draw_string(buffer));
+            ESP_ERROR_CHECK(ssd1306_update(ssd1306_handle));
+        }
+    }
+
+    vTaskDelete(NULL);
+}
+
+void mqtt_task(void *pvParameters) {
+
+    aht20_sensor_data_t data;
+    EventBits_t network_bits;
+    char buffer[8];
+
+    while (1) {
+        if (xQueueReceive(s_mqtt_queue, &data, portMAX_DELAY) == pdPASS) {
+
+            network_bits = xEventGroupGetBits(s_network_event_group);
+
+            if ((network_bits & (WIFI_CONNECTED_BIT | MQTT_CONNECTED_BIT)) == 
+                (WIFI_CONNECTED_BIT | MQTT_CONNECTED_BIT)) 
+            {
+                snprintf(buffer, sizeof(buffer), "%.2f", data.temperature);
+                ESP_ERROR_CHECK(mqtt_publish_data(buffer));
+            } else {
+                ESP_LOGW(TAG, "Either Wi-Fi or MQTT connection is missing: discarding current sample");
+            }
         }
     }
 
@@ -107,6 +136,13 @@ void app_main(void)
         return;
     }
 
+    s_mqtt_queue = xQueueCreate(1, sizeof(aht20_sensor_data_t));
+
+    if (s_mqtt_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for MQTT queue");
+        return;
+    }
+
     // I2C Master Bus Initialization
 
     i2c_master_bus_handle_t bus_handle;
@@ -132,4 +168,7 @@ void app_main(void)
                             (void *)aht20_handle, SENSOR_TASK_PRIORITY, NULL, 1);
     xTaskCreatePinnedToCore(display_task, "SSD1306_Task", DISPLAY_TASK_STACK_SIZE, 
                             (void *) ssd1306_handle, DISPLAY_TASK_PRIORITY, NULL, 1);
+
+    xTaskCreatePinnedToCore(mqtt_task, "MQTT_Task", MQTT_TASK_STACK_SIZE,
+                            NULL, MQTT_TASK_PRIORITY, NULL, 0);
 }
